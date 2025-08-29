@@ -1,6 +1,6 @@
 class Config {
   static final Uri launcherJarUrl =
-      Uri.parse('https://your-project-site.ru/path/to/launcher.jar');
+      Uri.parse('http://eoc-rp.ru/Launcher.jar');
 
-  static final String projectDirectoryName = 'your-project-dir-name';
+  static final String projectDirectoryName = 'eoc-test';
 }
