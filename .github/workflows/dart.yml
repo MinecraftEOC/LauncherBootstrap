@@ -8,17 +8,20 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     permissions:
-      contents: write 
+      contents: write
 
     strategy:
       matrix:
         include:
           - os: ubuntu-latest
             fileName: "starter_linux"
+            assetName: "linux_executable"
           - os: windows-latest
             fileName: "starter_windows.exe"
+            assetName: "windows_executable.exe"
           - os: macos-latest
             fileName: "starter_macos"
+            assetName: "macos_executable"
 
     steps:
       - name: Checkout
@@ -30,11 +33,131 @@ jobs:
       - name: Install dependencies
         run: dart pub get
 
-      - name: Build
+      - name: Verify icon exists
+        run: |
+          if [ ! -f assets/icon.ico ]; then
+            echo "❌ Icon file assets/icon.ico not found!"
+            exit 1
+          fi
+          echo "✅ Icon found at assets/icon.ico"
+
+      - name: Build executable
         run: dart compile exe ./bin/launcher_bootstrap.dart -o ${{ matrix.fileName }}
+
+      - name: Add icon to Windows executable
+        if: matrix.os == 'windows-latest'
+        run: |
+          echo "Adding icon to Windows executable..."
+          # Скачиваем rcedit
+          curl -LO https://github.com/electron/rcedit/releases/download/v2.0.0/rcedit-x64.exe
+          # Добавляем иконку к EXE
+          ./rcedit-x64.exe ${{ matrix.fileName }} --set-icon assets/icon.ico
+          echo "✅ Icon added to Windows executable"
+
+      - name: Create macOS app bundle with icon
+        if: matrix.os == 'macos-latest'
+        run: |
+          echo "Creating macOS app bundle..."
+          # Создаем структуру .app bundle
+          mkdir -p Starter.app/Contents/{MacOS,Resources}
+          
+          # Копируем исполняемый файл
+          cp ${{ matrix.fileName }} Starter.app/Contents/MacOS/starter
+          chmod +x Starter.app/Contents/MacOS/starter
+          
+          # Создаем Info.plist
+          cat > Starter.app/Contents/Info.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>starter</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.eoc.launcher</string>
+              <key>CFBundleName</key>
+              <string>EOC Launcher</string>
+              <key>CFBundleVersion</key>
+              <string>1.0.0</string>
+              <key>CFBundleShortVersionString</key>
+              <string>1.0</string>
+              <key>CFBundleIconFile</key>
+              <string>icon.icns</string>
+              <key>LSMinimumSystemVersion</key>
+              <string>10.13</string>
+          </dict>
+          </plist>
+          EOF
+          
+          # Конвертируем .ico в .icns для macOS
+          if ! command -v iconutil &> /dev/null; then
+            echo "⚠️ iconutil not available, skipping .icns creation"
+          else
+            # Создаем временную папку для иконок
+            mkdir -p icon.iconset
+            # Конвертируем .ico в PNG (используем sips)
+            sips -s format png assets/icon.ico --out icon.iconset/icon_512x512.png
+            # Создаем .icns
+            iconutil -c icns icon.iconset -o Starter.app/Contents/Resources/icon.icns
+            echo "✅ macOS .icns icon created"
+          fi
+          
+          # Архивируем .app bundle
+          zip -r ${{ matrix.fileName }}_with_icon.zip Starter.app
+          mv ${{ matrix.fileName }}_with_icon.zip ${{ matrix.fileName }}
+          echo "✅ macOS app bundle created"
+
+      - name: Create Linux desktop entry with icon
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          echo "Creating Linux package with icon..."
+          # Создаем временную структуру для пакета
+          mkdir -p eoc-launcher/{usr/bin,usr/share/applications,usr/share/icons/hicolor/256x256/apps}
+          
+          # Копируем исполняемый файл
+          cp ${{ matrix.fileName }} eoc-launcher/usr/bin/eoc-launcher
+          chmod +x eoc-launcher/usr/bin/eoc-launcher
+          
+          # Копируем иконку
+          cp assets/icon.ico eoc-launcher/usr/share/icons/hicolor/256x256/apps/eoc-launcher.png
+          
+          # Создаем .desktop файл
+          cat > eoc-launcher/usr/share/applications/eoc-launcher.desktop << EOF
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=EOC Launcher
+          Comment=EOC Game Launcher
+          Exec=/usr/bin/eoc-launcher
+          Icon=eoc-launcher
+          Categories=Game;
+          Terminal=false
+          StartupNotify=false
+          EOF
+          
+          # Архивируем пакет
+          tar -czf ${{ matrix.fileName }}_with_icon.tar.gz eoc-launcher/
+          mv ${{ matrix.fileName }}_with_icon.tar.gz ${{ matrix.fileName }}
+          echo "✅ Linux package with icon created"
 
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           draft: true
-          files: ${{ matrix.fileName }}
+          files: |
+            ${{ matrix.fileName }}
+          tag_name: v${{ github.run_number }}
+          name: Release v${{ github.run_number }}
+          body: |
+            Automated build with icons for all platforms
+            
+            **Platforms:**
+            - Windows (.exe with icon)
+            - macOS (.app bundle)
+            - Linux (package with desktop entry)
+
+      - name: Cleanup
+        run: |
+          # Очищаем временные файлы
+          rm -f rcedit-x64.exe
+          rm -rf Starter.app icon.iconset eoc-launcher
