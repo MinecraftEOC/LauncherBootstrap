@@ -33,7 +33,18 @@ jobs:
       - name: Install dependencies
         run: dart pub get
 
-      - name: Verify icon exists
+      - name: Verify icon exists (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "assets/icon.ico")) {
+            Write-Error "❌ Icon file assets/icon.ico not found!"
+            exit 1
+          }
+          Write-Output "✅ Icon found at assets/icon.ico"
+
+      - name: Verify icon exists (Unix)
+        if: matrix.os != 'windows-latest'
         run: |
           if [ ! -f assets/icon.ico ]; then
             echo "❌ Icon file assets/icon.ico not found!"
@@ -46,13 +57,14 @@ jobs:
 
       - name: Add icon to Windows executable
         if: matrix.os == 'windows-latest'
+        shell: pwsh
         run: |
-          echo "Adding icon to Windows executable..."
+          Write-Output "Adding icon to Windows executable..."
           # Скачиваем rcedit
-          curl -LO https://github.com/electron/rcedit/releases/download/v2.0.0/rcedit-x64.exe
+          Invoke-WebRequest -Uri "https://github.com/electron/rcedit/releases/download/v2.0.0/rcedit-x64.exe" -OutFile "rcedit-x64.exe"
           # Добавляем иконку к EXE
-          ./rcedit-x64.exe ${{ matrix.fileName }} --set-icon assets/icon.ico
-          echo "✅ Icon added to Windows executable"
+          .\rcedit-x64.exe ${{ matrix.fileName }} --set-icon assets/icon.ico
+          Write-Output "✅ Icon added to Windows executable"
 
       - name: Create macOS app bundle with icon
         if: matrix.os == 'macos-latest'
@@ -66,7 +78,7 @@ jobs:
           chmod +x Starter.app/Contents/MacOS/starter
           
           # Создаем Info.plist
-          cat > Starter.app/Contents/Info.plist << EOF
+          cat > Starter.app/Contents/Info.plist << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -89,17 +101,21 @@ jobs:
           </plist>
           EOF
           
-          # Конвертируем .ico в .icns для macOS
-          if ! command -v iconutil &> /dev/null; then
-            echo "⚠️ iconutil not available, skipping .icns creation"
-          else
+          # Конвертируем .ico в .icns для macOS (если доступно)
+          if command -v iconutil &> /dev/null; then
             # Создаем временную папку для иконок
             mkdir -p icon.iconset
             # Конвертируем .ico в PNG (используем sips)
-            sips -s format png assets/icon.ico --out icon.iconset/icon_512x512.png
-            # Создаем .icns
-            iconutil -c icns icon.iconset -o Starter.app/Contents/Resources/icon.icns
-            echo "✅ macOS .icns icon created"
+            sips -s format png assets/icon.ico --out icon.iconset/icon_512x512.png 2>/dev/null || true
+            # Создаем .icns если конвертация удалась
+            if [ -f icon.iconset/icon_512x512.png ]; then
+              iconutil -c icns icon.iconset -o Starter.app/Contents/Resources/icon.icns
+              echo "✅ macOS .icns icon created"
+            else
+              echo "⚠️ Could not convert .ico to .icns, using default icon"
+            fi
+          else
+            echo "⚠️ iconutil not available, skipping .icns creation"
           fi
           
           # Архивируем .app bundle
@@ -118,11 +134,18 @@ jobs:
           cp ${{ matrix.fileName }} eoc-launcher/usr/bin/eoc-launcher
           chmod +x eoc-launcher/usr/bin/eoc-launcher
           
-          # Копируем иконку
-          cp assets/icon.ico eoc-launcher/usr/share/icons/hicolor/256x256/apps/eoc-launcher.png
+          # Конвертируем .ico в .png для Linux (если установлен ImageMagick)
+          if command -v convert &> /dev/null; then
+            convert assets/icon.ico eoc-launcher/usr/share/icons/hicolor/256x256/apps/eoc-launcher.png
+            echo "✅ Converted .ico to .png for Linux"
+          else
+            # Просто копируем .ico если convert недоступен
+            cp assets/icon.ico eoc-launcher/usr/share/icons/hicolor/256x256/apps/eoc-launcher.ico
+            echo "⚠️ ImageMagick not available, using .ico directly"
+          fi
           
           # Создаем .desktop файл
-          cat > eoc-launcher/usr/share/applications/eoc-launcher.desktop << EOF
+          cat > eoc-launcher/usr/share/applications/eoc-launcher.desktop << 'EOF'
           [Desktop Entry]
           Version=1.0
           Type=Application
