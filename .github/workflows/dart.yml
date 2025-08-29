@@ -14,13 +14,13 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            fileName: "starter_linux"
+            fileName: "EOCLauncher"
             assetName: "linux_executable"
           - os: windows-latest
-            fileName: "starter_windows.exe"
+            fileName: "EOCLauncher.exe"
             assetName: "windows_executable.exe"
           - os: macos-latest
-            fileName: "starter_macos"
+            fileName: "EOCLauncher"
             assetName: "macos_executable"
 
     steps:
