@@ -179,8 +179,19 @@ jobs:
             - macOS (.app bundle)
             - Linux (package with desktop entry)
 
-      - name: Cleanup
+      - name: Cleanup Windows
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
         run: |
-          # Очищаем временные файлы
+          Write-Output "Cleaning up Windows temporary files..."
+          Remove-Item -Force -ErrorAction SilentlyContinue rcedit-x64.exe
+          Remove-Item -Recurse -Force -ErrorAction SilentlyContinue Starter.app
+          Remove-Item -Recurse -Force -ErrorAction SilentlyContinue icon.iconset
+          Remove-Item -Recurse -Force -ErrorAction SilentlyContinue eoc-launcher
+
+      - name: Cleanup Unix
+        if: matrix.os != 'windows-latest'
+        run: |
+          echo "Cleaning up Unix temporary files..."
           rm -f rcedit-x64.exe
           rm -rf Starter.app icon.iconset eoc-launcher
