@@ -4,18 +4,10 @@ import 'package:launcher_bootstrap/storage_manager.dart';
 
 class LauncherStarter {
   static startLauncher() async {
-    final javaPath = await _resolveJavaExecutablePath();
-    
-    String javaExecutable = javaPath;
-    if (Platform.isWindows) {
-      javaExecutable = javaPath.replaceAll('java.exe', 'javaw.exe');
-      if (!await File(javaExecutable).exists()) {
-        javaExecutable = javaPath;
-      }
-    }
+    print('Starting launcher...');
 
     await Process.start(
-        await javaExecutable, ['-jar', 'launcher.jar'],
+        await _resolveJavaExecutablePath(), ['-jar', 'launcher.jar'],
         mode: ProcessStartMode.detached,
         workingDirectory: StorageManager.wrapperDirectory);
   }
@@ -26,8 +18,6 @@ class LauncherStarter {
 
     if (Platform.isMacOS) {
       return '${javaDirectory.path}/Contents/Home/bin/java';
-    } else if (Platform.isWindows) {
-      return '${javaDirectory.path}/bin/java.exe';
     } else {
       return '${javaDirectory.path}/bin/java';
     }
