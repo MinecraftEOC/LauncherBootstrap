@@ -169,15 +169,7 @@ jobs:
           draft: true
           files: |
             ${{ matrix.fileName }}
-          tag_name: v${{ github.run_number }}
-          name: Release v${{ github.run_number }}
-          body: |
-            Automated build with icons for all platforms
-            
-            **Platforms:**
-            - Windows (.exe with icon)
-            - macOS (.app bundle)
-            - Linux (package with desktop entry)
+          name: Release
 
       - name: Cleanup Windows
         if: matrix.os == 'windows-latest'
