@@ -28,6 +28,8 @@ class LauncherStarter {
 
     if (Platform.isMacOS) {
       return '${javaDirectory.path}/Contents/Home/bin/java';
+    } else if (Platform.isWindows) {
+      return '${javaDirectory.path}/bin/java.exe';
     } else {
       return '${javaDirectory.path}/bin/java';
     }
