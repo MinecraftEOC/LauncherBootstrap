@@ -6,8 +6,18 @@ class LauncherStarter {
   static startLauncher() async {
     print('Starting launcher...');
 
+    final javaPath = await _resolveJavaExecutablePath();
+    
+    String javaExecutable = javaPath;
+    if (Platform.isWindows) {
+      javaExecutable = javaPath.replaceAll('java.exe', 'javaw.exe');
+      if (!await File(javaExecutable).exists()) {
+        javaExecutable = javaPath;
+      }
+    }
+
     await Process.start(
-        await _resolveJavaExecutablePath(), ['-jar', 'launcher.jar'],
+        await javaExecutable, ['-jar', 'launcher.jar'],
         mode: ProcessStartMode.detached,
         workingDirectory: StorageManager.wrapperDirectory);
   }
