@@ -1,5 +1,5 @@
 import 'package:launcher_bootstrap/app.dart';
 
-void main(List<String> arguments) {
-  App.run(arguments);
+Future<void> main(List<String> arguments) async {
+  await App.run(arguments);
 }
