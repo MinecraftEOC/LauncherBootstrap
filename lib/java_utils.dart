@@ -15,6 +15,8 @@ class JavaUtils {
   static String executablePath(String javaHomePath) {
     if (Platform.isMacOS) {
       return '$javaHomePath/Contents/Home/bin/java';
+    } else if (Platform.isWindows) {
+      return '$javaHomePath/bin/java.exe';
     }
     return '$javaHomePath/bin/java';
   }
